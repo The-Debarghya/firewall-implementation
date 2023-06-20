@@ -1,0 +1,34 @@
+version: '2.2'
+
+services:
+  onos:
+    image: onosproject/onos:2.7.0
+    ports:
+      - "8101:8101"
+      - "8181:8181"
+    environment:
+      - ds.lock.timeout.milliseconds=15000
+    networks:
+      control_net:
+        ipv4_address: 192.168.50.2 
+      ovs_net:
+        ipv4_address: 192.168.60.2 
+
+networks:
+  control_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.50.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br_test
+  
+  ovs_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.60.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br_ovs
