@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cdcju.component.*;
 
 import org.onosproject.net.Device;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.Host;
 import org.onosproject.net.HostId;
 import org.onosproject.net.device.DeviceService;
@@ -110,10 +111,14 @@ public class AppWebResource extends AbstractWebResource {
     @Path("add/all")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response addUniversalRules(@QueryParam("action") String action, @QueryParam("protocol") String protocol) {
-        Iterable<Device> devices = get(DeviceService.class).getDevices();
+    public Response addUniversalRules(
+            @QueryParam("action") String action, 
+            @QueryParam("protocol") String protocol, 
+            @QueryParam("deviceId") String deviceId) {
+        // Iterable<Device> devices = get(DeviceService.class).getDevices();
+        Device device = get(DeviceService.class).getDevice(DeviceId.deviceId(deviceId));
         Action ac = action.equals("ALLOW") ? Action.ALLOW : Action.DENY;
-        boolean response = rulesList.universalRule(ac, Integer.valueOf(protocol), devices);
+        boolean response = rulesList.universalRule(ac, Integer.valueOf(protocol), device);
         if (response == true) {
             ObjectNode node = mapper().createObjectNode().put("status", "success");
             return ok(node).build(); 

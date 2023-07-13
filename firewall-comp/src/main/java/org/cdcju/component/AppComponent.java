@@ -281,6 +281,37 @@ public class AppComponent {
         return payload;
     }
 
+    private String buildPayload(Device device, String protocol) {
+        return String.format("{\n" + //
+                "  \"flows\": [\n" + //
+                "    {\n" + //
+                "      \"priority\": 127,\n" + //
+                "      \"timeout\": 0,\n" + //
+                "      \"isPermanent\": true,\n" + //
+                "      \"deviceId\": \"%s\",\n" + //
+                "      \"treatment\": {\n" + //
+                "        \"instructions\": [\n" + //
+                "          \n" + //
+                "        ]\n" + //
+                "      },\n" + //
+                "      \"selector\": {\n" + //
+                "        \"criteria\": [\n" + //
+                "          {\n" + //
+                "            \"type\": \"ETH_TYPE\",\n" + //
+                "            \"ethType\": \"0x0800\"\n" + //
+                "          },\n" + //
+                "          {\n" + //
+                "            \"type\": \"IP_PROTO\",\n" + //
+                "            \"protocol\": %s\n" + //
+                "          }\n" + //
+                "        ]\n" + //
+                "      }\n" + //
+                "    }\n" + //
+                "  ]\n" + //
+                "}\n" + //
+                "", device.id().toString(), protocol);
+    }
+    
     public static List<FirewallRule> getAllRules() {
         log.info(rulesList.toString());
         return rulesList;
@@ -403,6 +434,73 @@ public class AppComponent {
             objNode.put("message", stackTrace);
             return objNode;
         }
+    }
+
+
+    public boolean universalRule(Action action, Integer protocol, Device device) {
+        if (action == Action.ALLOW) {
+            int i = 0;
+            for (FirewallRule firewallRule : rulesList) {
+                if (firewallRule.getProtocol() == protocol && firewallRule.getAction() == Action.DENY && firewallRule.getDeviceId() == device.id().toString()) {
+                    Client client = ClientBuilder.newClient();
+                    WebTarget target = client.target("http://localhost:8181/onos/v1");
+                    String did = firewallRule.getDeviceId();
+                    String fid = firewallRule.getRuleId().toString();
+                    String endpoint = String.format("/flows/%s/%s", did, fid);
+                    Response response = target.path(endpoint)
+                            .request(MediaType.APPLICATION_JSON)
+                            .header(HttpHeaders.AUTHORIZATION, getBasicAuthHeader())
+                            .delete();
+                    rulesList.remove(i);
+
+                    log.info(response.getStatusInfo().toString() + " " + response.getStatus());
+                }
+                i++;
+            }
+            return true;
+        } else if(action == Action.DENY){
+            int i = 0;
+            for (FirewallRule firewallRule : rulesList) {
+                if (firewallRule.getAction() == Action.ALLOW && firewallRule.getProtocol() == protocol && firewallRule.getDeviceId() == device.id().toString()) {
+                    Client client = ClientBuilder.newClient();
+                    WebTarget target = client.target("http://localhost:8181/onos/v1");
+                    String did = firewallRule.getDeviceId();
+                    String fid = firewallRule.getRuleId().toString();
+                    String endpoint = String.format("/flows/%s/%s", did, fid);
+                    Response response = target.path(endpoint)
+                            .request(MediaType.APPLICATION_JSON)
+                            .header(HttpHeaders.AUTHORIZATION, getBasicAuthHeader())
+                            .delete();
+                    response.close();
+                    rulesList.remove(i);
+                }
+                i++;
+            }
+            Client client = ClientBuilder.newClient();
+            WebTarget target = client.target("http://localhost:8181/onos/v1");
+            String payload = buildPayload(device, protocol.toString());
+            String endpoint = String.format("/flows");
+            Response response = target.path(endpoint)
+                    .queryParam("appId", "org.onosproject.core")
+                    .request(MediaType.APPLICATION_JSON)
+                    .header(HttpHeaders.AUTHORIZATION, getBasicAuthHeader())
+                    .post(Entity.json(payload), Response.class);
+            ObjectMapper objMapper = new ObjectMapper();
+            try {
+                JsonNode nodeArr = objMapper.readTree(response.readEntity(String.class)).get("flows");
+                for (final JsonNode nodeObj : nodeArr) {
+                    String flowId = nodeObj.get("flowId").asText();
+                    String deviceId = nodeObj.get("deviceId").asText();
+                    FirewallRule rule = new FirewallRule(flowId, deviceId, -1, protocol, "", "", Action.DENY);
+                    rulesList.add(rule);
+                }
+                return true;
+            } catch (Exception e) {
+                log.error(e.toString());
+                return false;
+            }
+        }
+        return false;
     }
 
     public boolean universalRule(Action action, Integer protocol, Iterable<Device> devices) {
