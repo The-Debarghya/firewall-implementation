@@ -441,7 +441,8 @@ public class AppComponent {
         if (action == Action.ALLOW) {
             int i = 0;
             for (FirewallRule firewallRule : rulesList) {
-                if (firewallRule.getProtocol() == protocol && firewallRule.getAction() == Action.DENY && firewallRule.getDeviceId() == device.id().toString()) {
+     //           log.info(String.valueOf(firewallRule.getDeviceId().equals(device.id().toString())));
+                if (firewallRule.getProtocol() == protocol && firewallRule.getAction() == Action.DENY && firewallRule.getDeviceId().equals(device.id().toString())) {
                     Client client = ClientBuilder.newClient();
                     WebTarget target = client.target("http://localhost:8181/onos/v1");
                     String did = firewallRule.getDeviceId();
@@ -452,6 +453,10 @@ public class AppComponent {
                             .header(HttpHeaders.AUTHORIZATION, getBasicAuthHeader())
                             .delete();
                     rulesList.remove(i);
+                    if (rulesList.size() == 0) {
+                        log.info("No more rules");
+                        break;
+                    }
 
                     log.info(response.getStatusInfo().toString() + " " + response.getStatus());
                 }
@@ -461,7 +466,7 @@ public class AppComponent {
         } else if(action == Action.DENY){
             int i = 0;
             for (FirewallRule firewallRule : rulesList) {
-                if (firewallRule.getAction() == Action.ALLOW && firewallRule.getProtocol() == protocol && firewallRule.getDeviceId() == device.id().toString()) {
+                if (firewallRule.getAction() == Action.ALLOW && firewallRule.getProtocol() == protocol && firewallRule.getDeviceId().equals(device.id().toString())) {
                     Client client = ClientBuilder.newClient();
                     WebTarget target = client.target("http://localhost:8181/onos/v1");
                     String did = firewallRule.getDeviceId();
@@ -473,6 +478,10 @@ public class AppComponent {
                             .delete();
                     response.close();
                     rulesList.remove(i);
+                    if (rulesList.size() == 0) {
+                        log.info("No more rules");
+                        break;
+                    }
                 }
                 i++;
             }
